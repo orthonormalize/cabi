@@ -1,0 +1,7 @@
+duration:duration,durationms,totaldurationms
+startTime:starttime,startdate
+endTime:endtime,enddate
+startLoc:startstation
+endLoc:endstation
+bike:bike,bikenumber
+member:membertype,subscribertype,subscriptiontype,type,bikekey
