@@ -186,7 +186,7 @@ def weather_csv2db(weatherFile,dbName,tableW):
         print('Weather: reading column: %s' % col)
         print(time.clock())
         if (col=='timeW'):
-            dfW1.timeW = dfW1.timeW.apply(lambda x: (re.findall('.*(?= E)',x)[0]))
+            dfW1.timeW = dfW1.timeW.apply(lambda x: (re.findall('.*(?= E)',x)[0]))   # ignores EST/EDT... error @FallBack each November
             dfW1.timeW = dfW1.timeW.apply(lambda x: \
                     time.mktime(datetime.datetime.strptime(x,'%m-%d-%Y %H:%M').timetuple()))
         elif (col in ['precip01h','precip06h','snowDepth']):
@@ -230,11 +230,17 @@ def stations_csv2db(stationsCSV,dbName,tableS):
     rek_writeSQL(dbName,tableS,dfS,'w')
     
 def getMatchedRowDexes_origWeather(ts_Index,W):
+    # inputs: (list of N timestamps pre-arranged in an increasing arithmetic sequence, originalWeatherData)
+    # output: (list of N indices, identifying which rows of the originalWeatherData correspond to each timestamp)
     print('computing merged weather timestamps...')
-    dexHI = [len(W.timeW[W.timeW<t]) for t in ts_Index]    
-    looksign = [(2*ts_Index[ii] - sum(W.timeW.loc[(dexHI[ii]-1):dexHI[ii]])) \
-                    for ii in range(len(ts_Index))]
-    return [dexHI[ii] if (looksign[ii]>=0) else (dexHI[ii]-1) for ii in range(len(ts_Index))]                        
+    dexW=0
+    numT=(len(ts_Index))
+    MRD=[0]*numT
+    for dexT in range(numT):
+        while(W.timeW[dexW]<ts_Index[dexT]):
+            dexW+=1
+        MRD[dexT] = dexW if ((2*ts_Index[dexT])>=(W.timeW[dexW-1]+W.timeW[dexW])) else (dexW-1)
+    return MRD            
         
     
 def getMergedWeatherDF(W,tStart,tEnd):
@@ -283,6 +289,31 @@ def strBikesDocks():
     return {'B':'start','D':'end'}    
 
 def mergeData(DF1,W,S):
+    # wish to output numerous SQL tables
+        # B_C_31000, D_M_31096, etc.
+    W_h = getMergedWeatherDF(W,min(DF1.startTime),max(DF1.endTime))
+    time_h = getTimeDF(min(DF1.startTime),max(DF1.endTime))
+    strBD = strBikesDocks()
+    responses = ['B','D']
+    members = ['C','M']
+    uSta = S.terminalname.unique()
+    dd = {}
+    for r in responses:
+        fThLoc  = strBD[r]+'Loc'
+        fThHour = strBD[r]+'Hour'
+        for s in uSta:
+            print('r = %s, s = %s' % (r,s))
+            matchesS = (DF1[DF1[fThLoc]==s])
+            for m in members:
+                matchesMS = (matchesS[matchesS['member']==m])
+                tableName = ('%s_%s_%s' % (r,m,s))
+                dd[tableName] = pd.Series(W_h.index,index=W_h.index)
+                dd[tableName] = dd[tableName].apply(lambda x: np.count_nonzero(matchesMS[fThHour]==x))
+    PDF = pd.DataFrame(dd)
+    return (pd.concat([time_h,W_h,PDF],axis=1))
+
+
+def mergeData_v2(DF1,W,S):
     # wish to output numerous SQL tables
         # B_C_31000, D_M_31096, etc.
     W_h = getMergedWeatherDF(W,min(DF1.startTime),max(DF1.endTime))
