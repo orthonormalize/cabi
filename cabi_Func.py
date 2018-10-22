@@ -280,51 +280,50 @@ def getTimeDF(tStart,tEnd):
 def strBikesDocks():
     return {'B':'start','D':'end'}    
 
+def mergeData_old(DF1,W,S):
+    # very slow !!
+    # outputs all data into a single DF: uses compound names for all the rideCount columns
+        # B_C_31000, D_M_31096, etc.
+    W_h = getMergedWeatherDF(W,min(DF1.startTime),max(DF1.endTime))
+    time_h = getTimeDF(min(DF1.startTime),max(DF1.endTime))
+    strBD = strBikesDocks()
+    responses = ['B','D']
+    members = ['C','M']
+    uSta = S.terminalname.unique()
+    dd = {}
+    for r in responses:
+        fThLoc  = strBD[r]+'Loc'
+        fThHour = strBD[r]+'Hour'
+        for s in uSta:
+            print('r = %s, s = %s' % (r,s))
+            matchesS = (DF1[DF1[fThLoc]==s])
+            for m in members:
+                matchesMS = (matchesS[matchesS['member']==m])
+                tableName = ('%s_%s_%s' % (r,m,s))
+                dd[tableName] = pd.Series(W_h.index,index=W_h.index)
+                dd[tableName] = dd[tableName].apply(lambda x: np.count_nonzero(matchesMS[fThHour]==x))
+    PDF = pd.DataFrame(dd)
+    return (pd.concat([time_h,W_h,PDF],axis=1))
+
+
 def mergeData(DF1,W,S):
-    # wish to output numerous SQL tables
-        # B_C_31000, D_M_31096, etc.
-    W_h = getMergedWeatherDF(W,min(DF1.startTime),max(DF1.endTime))
+    # this outputs a different data structure (predictors, separate B and D each with double-indexed columns) than mergeData_old (one DS, compound names for columns)
+    print(time.clock())
+    print('Merging Trip History, Weather, and Station data frames: ')
+    ssc_1B=DF1.groupby(['startHour','startLoc','member']).duration.count()   # Executes in two seconds for 2014-2015 data set
+    ssc_1D=DF1.groupby(['endHour','endLoc','member']).duration.count()   # Executes in two seconds for 2014-2015 data set
     time_h = getTimeDF(min(DF1.startTime),max(DF1.endTime))
-    strBD = strBikesDocks()
-    responses = ['B','D']
-    members = ['C','M']
+    W_h = getMergedWeatherDF(W,min(DF1.startTime),max(DF1.endTime))  # ~ 2 sec
     uSta = S.terminalname.unique()
-    dd = {}
-    for r in responses:
-        fThLoc  = strBD[r]+'Loc'
-        fThHour = strBD[r]+'Hour'
-        for s in uSta:
-            print('r = %s, s = %s' % (r,s))
-            matchesS = (DF1[DF1[fThLoc]==s])
-            for m in members:
-                matchesMS = (matchesS[matchesS['member']==m])
-                tableName = ('%s_%s_%s' % (r,m,s))
-                dd[tableName] = pd.Series(W_h.index,index=W_h.index)
-                dd[tableName] = dd[tableName].apply(lambda x: np.count_nonzero(matchesMS[fThHour]==x))
-    PDF = pd.DataFrame(dd)
-    return (pd.concat([time_h,W_h,PDF],axis=1))
-
-
-def mergeData_v2(DF1,W,S):
-    # wish to output numerous SQL tables
-        # B_C_31000, D_M_31096, etc.
-    W_h = getMergedWeatherDF(W,min(DF1.startTime),max(DF1.endTime))
-    time_h = getTimeDF(min(DF1.startTime),max(DF1.endTime))
-    strBD = strBikesDocks()
-    responses = ['B','D']
-    members = ['C','M']
-    uSta = S.terminalname.unique()
-    dd = {}
-    for r in responses:
-        fThLoc  = strBD[r]+'Loc'
-        fThHour = strBD[r]+'Hour'
-        for s in uSta:
-            print('r = %s, s = %s' % (r,s))
-            matchesS = (DF1[DF1[fThLoc]==s])
-            for m in members:
-                matchesMS = (matchesS[matchesS['member']==m])
-                tableName = ('%s_%s_%s' % (r,m,s))
-                dd[tableName] = pd.Series(W_h.index,index=W_h.index)
-                dd[tableName] = dd[tableName].apply(lambda x: np.count_nonzero(matchesMS[fThHour]==x))
-    PDF = pd.DataFrame(dd)
-    return (pd.concat([time_h,W_h,PDF],axis=1))
+    exhaustiveTups = [(Hour,Loc,cm) for Hour in W_h.index for Loc in uSta for cm in ('C','M')]  # 3 sec
+    print(time.clock())
+    print('Re-indexing after groupby().count() ... ')
+    ssc_2B = ssc_1B.reindex(pd.MultiIndex.from_tuples(exhaustiveTups,names=['startHour','startLoc','member']),fill_value=0) # 25sec !
+    ssc_2D = ssc_1D.reindex(pd.MultiIndex.from_tuples(exhaustiveTups,names=['endHour','endLoc','member']),fill_value=0) # 25 sec !
+    print(time.clock())
+    print('Unstacking nested pSeries ...')
+    dfB3 = ssc_2B.unstack().unstack()
+    dfD3 = ssc_2D.unstack().unstack()
+    print(time.clock())
+    predictors = pd.concat([time_h,W_h],axis=1)
+    return ((predictors, dfB3, dfD3))
