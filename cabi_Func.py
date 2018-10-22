@@ -177,7 +177,7 @@ def weather_csv2db(weatherFile,dbName,tableW):
             pSeries=dfW1[col]
             tOffset = dicTimeOffsetsWeatherFields()[col]
             dexValid=len(dfW1)-1
-            for dexCur in range((len(dfW1)-1),-1,-1):
+            for dexCur in range((len(dfW1)-1),-1,-1):   # step backwards through data to determine if there is a valid replacement for each NAN
                 if (np.isnan(pSeries.iloc[dexCur])):
                     if ((dfW1.timeW.iloc[dexValid]-dfW1.timeW.iloc[dexCur])<tOffset):
                         pSeries.iloc[dexCur]=pSeries.iloc[dexValid]
