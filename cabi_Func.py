@@ -147,8 +147,8 @@ def TH_csv2db(yqStart,yqEnd,dbName,tableName):
                     th = th.rename(columns = {col0:FN})
                     th[FN] = reformatCabiField(th[FN],FN)
         th = th[fN_TH()]
-        th.loc[:,'startHour'] = np.floor(th['startTime']/3600.0)
-        th.loc[:,'endHour'] = np.floor(th['endTime']/3600.0)
+        th.loc[:,'startHour'] = np.floor(th['startTime']/3600.0).astype('int64')
+        th.loc[:,'endHour'] = np.floor(th['endTime']/3600.0).astype('int64')
         rek_writeSQL(dbName,tableName,th,'a')
         if (q < 4):
             q+=1
@@ -177,7 +177,7 @@ def replaceNansWithZeros(pSeries):
 def dicTimeOffsetsWeatherFields():
     return {'precip01h':3600,'precip06h':21600,'snowDepth':21600}
     
-def weather_csv2db(weatherFile,dbName,tableW):
+def weather_csv2db_old(weatherFile,dbName,tableW):
     dfW0 = pd.read_csv(weatherFile)
     dfW1 = dfW0[fN_weatherW()]
     dfW1 = dfW1.rename(columns = {(fN_weatherW()[j]):(fN_weatherR()[j]) \
@@ -199,6 +199,34 @@ def weather_csv2db(weatherFile,dbName,tableW):
             dfW1[col] = replaceNansWithZeros(dfW1[col])
     rek_writeSQL(dbName,tableW,dfW1,'w')
     
+def weather_csv2db(weatherFile,dbName,tableW):
+    dfW0 = pd.read_csv(weatherFile)
+    dfW1 = dfW0[fN_weatherW()]
+    dfW1 = dfW1.rename(columns = {(fN_weatherW()[j]):(fN_weatherR()[j]) \
+                        for j in range(len(fN_weatherW()))})   
+    for col in dfW1.columns:
+        print('Weather: reading column: %s' % col)
+        if (col=='timeW'):
+            dfW1.timeW = dfW1.timeW.apply(lambda x: (re.findall('.*(?= E)',x)[0]))   # ignores EST/EDT... error @FallBack each November
+            dfW1.timeW = dfW1.timeW.apply(lambda x: \
+                    time.mktime(datetime.datetime.strptime(x,'%m-%d-%Y %H:%M').timetuple()))
+        elif (col in ['precip01h','precip06h','snowDepth']):  # only allow backfill to replace NaNs up to a time difference given by tOffset
+            pSeries=dfW1[col]
+            tOffset = dicTimeOffsetsWeatherFields()[col]
+            dexValid=len(dfW1)-1
+            for dexCur in range((len(dfW1)-1),-1,-1):
+                if (np.isnan(pSeries.iloc[dexCur])):
+                    if ((dfW1.timeW.iloc[dexValid]-dfW1.timeW.iloc[dexCur])<tOffset):
+                        pSeries.iloc[dexCur]=pSeries.iloc[dexValid]
+                else:
+                    dexValid=dexCur
+            dfW1[col]=dfW1[col].fillna(value=0)
+        else:
+            # just fill over the remaining missing data with later-measured values. Not many of them:
+            dfW1[col] = (dfW1[col]).fillna(method='bfill')
+    rek_writeSQL(dbName,tableW,dfW1,'w')
+
+
 def getDTypes_StationFields():
     return {'terminalname':int,'name':str,'lat':float,'long':float,'el':float}    
 
@@ -266,7 +294,8 @@ def holidayList():
 def daysPerMonth():
     return [31,28,31,30,31,30,31,31,30,31,30,31]
 
-def getTimeDF(tStart,tEnd):    
+def getTimeDF(tStart,tEnd):
+    # creates DF containing the fields that are inherent functions only of time: (DOW,DOY,hour of day,isHol,year)
     holidays = holidayList()
     DPM = daysPerMonth()
     h0 = int(np.floor(tStart/3600.0))
