@@ -158,46 +158,9 @@ def TH_csv2db(yqStart,yqEnd,dbName,tableName):
         numRides += len(th)
     #os.chdir(origDIR)
     
-def rmNansFromWeatherCol_withinTimeOffset(pSeries,timeW,offset):    
-    filledDexes = np.flipud(np.where(~np.isnan(pSeries))[0])
-    qSeries = pSeries.copy()
-    for fd in filledDexes:
-        time_fd = timeW[fd]
-        time_prev = time_fd - offset
-        minDex = min(np.where((timeW > time_prev))[0])
-        qSeries[minDex:(fd+1)] = pSeries[fd]
-    return qSeries
-    
-def replaceNansWithZeros(pSeries):
-    nanDexes = np.where(np.isnan(pSeries))[0]
-    qSeries = pSeries.copy()
-    qSeries[nanDexes]=0
-    return qSeries    
     
 def dicTimeOffsetsWeatherFields():
     return {'precip01h':3600,'precip06h':21600,'snowDepth':21600}
-    
-def weather_csv2db_old(weatherFile,dbName,tableW):
-    dfW0 = pd.read_csv(weatherFile)
-    dfW1 = dfW0[fN_weatherW()]
-    dfW1 = dfW1.rename(columns = {(fN_weatherW()[j]):(fN_weatherR()[j]) \
-                        for j in range(len(fN_weatherW()))})    
-    for col in dfW1.columns:
-        print('Weather: reading column: %s' % col)
-        print(time.clock())
-        if (col=='timeW'):
-            dfW1.timeW = dfW1.timeW.apply(lambda x: (re.findall('.*(?= E)',x)[0]))   # ignores EST/EDT... error @FallBack each November
-            dfW1.timeW = dfW1.timeW.apply(lambda x: \
-                    time.mktime(datetime.datetime.strptime(x,'%m-%d-%Y %H:%M').timetuple()))
-        elif (col in ['precip01h','precip06h','snowDepth']):
-            tOffset = dicTimeOffsetsWeatherFields()[col]
-            dfW1[col] = rmNansFromWeatherCol_withinTimeOffset(dfW1[col],dfW1.timeW,tOffset)
-            dfW1[col] = replaceNansWithZeros(dfW1[col])
-        else:
-            # just fill over the remaining missing data with nearby values. Not many of them:
-            dfW1[col] = rmNansFromWeatherCol_withinTimeOffset(dfW1[col],dfW1.timeW,216000)
-            dfW1[col] = replaceNansWithZeros(dfW1[col])
-    rek_writeSQL(dbName,tableW,dfW1,'w')
     
 def weather_csv2db(weatherFile,dbName,tableW):
     dfW0 = pd.read_csv(weatherFile)
