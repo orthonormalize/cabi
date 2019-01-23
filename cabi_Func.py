@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import os
 import glob
+import zipfile
 import re
 import datetime
 import time
@@ -125,6 +126,7 @@ def reformatCabiField(idata,FN):
     return odata    
 
 def read_TH_zipLogFile(zipsDir,dbName):
+    # reads the log file, outputs which years and individual months have been covered previously
     fileDB = os.path.join(zipsDir,dbName+'.db')
     (yearsCovered,monthsCovered)=([],[])
     fileLOG = re.sub(r'\.zip\Z','.log',fileDB)
@@ -143,7 +145,7 @@ def TH_zips2db(zipsDir,dbName,tableName):
     # a log file will be generated, in zipsDir that will track previous DB writes
         # skip any zip file that contains a timeblock which has already been added to the DB
     (yearsCovered,monthsCovered) = read_TH_zipLogFile(zipsDir,dbName)
-    cabiZipFiles = filter(lambda x: x.endswith('-capitalbikeshare-tripdata.zip'),os.listdir(zipsDIR))
+    cabiZipFiles = filter(lambda x: x.endswith('-capitalbikeshare-tripdata.zip'),os.listdir(zipsDir))
     for ff in cabiZipFiles:
         y = ff[:4]
         if (y not in yearsCovered):
@@ -153,6 +155,13 @@ def TH_zips2db(zipsDir,dbName,tableName):
             else:
                 y_or_m = tempRFA[0]
                 if (y_or_m not in monthsCovered):
+                    # this TH file has not been read, either as a full year or as an individual month
+                    zf=zipfile.ZipFile(os.path.join(zipsDir,ff))
+                    zipContents = filter(lambda x: x.endswith('.csv'),zf.namelist())
+                    for csvfilename in zipContents:
+                        th = pd.read_csv(zf.open(csvfilename))
+                        
+                    
                     
         
         
