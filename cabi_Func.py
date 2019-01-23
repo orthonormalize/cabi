@@ -2,7 +2,8 @@
 
 import numpy as np
 import pandas as pd
-#import os
+import os
+import glob
 import re
 import datetime
 import time
@@ -122,6 +123,40 @@ def reformatCabiField(idata,FN):
     elif (FN in ['member']):
         odata = ['C' if (r=='Casual') else 'M' for r in idata]
     return odata    
+
+def read_TH_zipLogFile(zipsDir,dbName):
+    fileDB = os.path.join(zipsDir,dbName+'.db')
+    (yearsCovered,monthsCovered)=([],[])
+    fileLOG = re.sub(r'\.zip\Z','.log',fileDB)
+    if (os.path.isfile(fileLOG)):
+        with open(fileLOG,'r') as f:
+            for line in f:
+                if (len(line)==6):
+                    monthsCovered.append(line)
+                elif (len(line)==4):
+                    yearsCovered.append(line)
+    return (yearsCovered,monthsCovered)
+
+def TH_zips2db(zipsDir,dbName,tableName):
+    # check directory zipsDir for zip files
+    # write new files to database dbName,tableName
+    # a log file will be generated, in zipsDir that will track previous DB writes
+        # skip any zip file that contains a timeblock which has already been added to the DB
+    (yearsCovered,monthsCovered) = read_TH_zipLogFile(zipsDir,dbName)
+    cabiZipFiles = filter(lambda x: x.endswith('-capitalbikeshare-tripdata.zip'),os.listdir(zipsDIR))
+    for ff in cabiZipFiles:
+        y = ff[:4]
+        if (y not in yearsCovered):
+            tempRFA = re.findall('\A[^\-]+(?=\-)',ff)
+            if (len(tempRFA) != 1):
+                print('Unable to parse file!  %s' % ff)
+            else:
+                y_or_m = tempRFA[0]
+                if (y_or_m not in monthsCovered):
+                    
+        
+        
+
 
 def TH_csv2db(yqStart,yqEnd,dbName,tableName):
     #origDIR = os.getcwd()
