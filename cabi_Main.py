@@ -23,7 +23,7 @@ stationsCSV = 'stationInfo_v8.csv'
 # ASSEMBLE RAW DATA:
 fileDB = dbName+'.db'
 if (not((os.path.isfile(fileDB)))): # assume that TH is done, if db exists
-    cf.TH_csv2db(134,154,fileDB,tableTH)
+    cf.TH_csv2db_2016(134,154,fileDB,tableTH)
     cf.weather_csv2db(weatherFile,fileDB,tableW)
     cf.stations_csv2db(stationsCSV,fileDB,tableS)
 

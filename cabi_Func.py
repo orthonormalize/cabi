@@ -140,15 +140,61 @@ def read_TH_zipLogFile(zipsDir,dbName):
     return (yearsCovered,monthsCovered)
 
 def TH_zips2db(zipsDir,dbName,tableName):
+    # 20190124: let's just have it read full years for now. And bundle the 2018 stuff in a single zip
+    
     # check directory zipsDir for zip files
     # write new files to database dbName,tableName
     # a log file will be generated, in zipsDir that will track previous DB writes
         # skip any zip file that contains a timeblock which has already been added to the DB
+    [cfm_F,cfm_B] = get_cabiFieldMatcher()
     (yearsCovered,monthsCovered) = read_TH_zipLogFile(zipsDir,dbName)
     cabiZipFiles = filter(lambda x: x.endswith('-capitalbikeshare-tripdata.zip'),os.listdir(zipsDir))
     for ff in cabiZipFiles:
         y = ff[:4]
-        if (y not in yearsCovered):
+        if (not(y.isdigit())):
+            print('Unable to parse file name format: %s' % ff)
+        elif (y in yearsCovered):
+            print('Skipping file %s. Already in database' % ff)
+        elif (y not in yearsCovered):
+            print('reading file: %s' % ff)
+            zf=zipfile.ZipFile(os.path.join(zipsDir,ff))
+            zipContents = filter(lambda x: x.endswith('.csv'),zf.namelist())
+            for csvfilename in zipContents:
+                th = pd.read_csv(zf.open(csvfilename))
+                cols = th.columns
+                for col0 in cols:
+                    col = re.sub('[^a-z]+', '', col0.lower())
+                    if (col in cfm_B
+            
+            
+            th = pd.read_csv(csvFilename)
+            th.index = np.arange(numRides,numRides+len(th))
+            cols=th.columns
+            for col0 in cols:
+                col = ''.join(listSelect(col0.lower(),ismember(col0.lower(),atoz())))
+                if (col in cfm_B):
+                    FN = cfm_B[col]
+                    if FN in fN_TH():
+                        print('    Processing field: %s' % FN)
+                        th = th.rename(columns = {col0:FN})
+                        th[FN] = reformatCabiField(th[FN],FN)
+            th = th[fN_TH()]
+            th.loc[:,'startHour'] = np.floor(th['startTime']/3600.0).astype('int64')
+            th.loc[:,'endHour'] = np.floor(th['endTime']/3600.0).astype('int64')
+            rek_writeSQL(dbName,tableName,th,'a')
+
+
+            
+            
+            
+            
+            
+            
+            
+            # if successful, add y to the log file. But do this later so we can test the data reads a few times
+            
+            
+            
             tempRFA = re.findall('\A[^\-]+(?=\-)',ff)
             if (len(tempRFA) != 1):
                 print('Unable to parse file!  %s' % ff)
@@ -167,7 +213,7 @@ def TH_zips2db(zipsDir,dbName,tableName):
         
 
 
-def TH_csv2db(yqStart,yqEnd,dbName,tableName):
+def TH_csv2db_2016(yqStart,yqEnd,dbName,tableName):
     #origDIR = os.getcwd()
     #os.chdir(cabiDIR)
     y = yqStart / 10
