@@ -107,19 +107,11 @@ def reformatCabiField(idata,FN):
         idata = [(str(x)).strip() for x in idata]
         odata = [name2terminal[x] for x in idata]
     elif (FN in ['startTime','endTime']):
-        if ('-' in idata.iloc[0]):
-            tStr = '%Y-%m-%d %H:%M'
-            #odata = [time.mktime(datetime.datetime.strptime(x,tStr).timetuple()) for x in idata]
-            #tups_YMDhm_str = [re.findall('(\d+)-(\d+)-(\d+) (\d+):(\d+)',x)[0] for x in idata]
-            #tups_YMDhm_int = [[int(x) for x in tup] for tup in tups_YMDhm_str]
-            #odata = [(3600*h+60*mi+time.mktime(datetime.date(y,mo,d).timetuple())) \
-            #                            for (y,mo,d,h,mi) in tups_YMDhm_int]
-        else:
-            tStr = '%m/%d/%Y %H:%M'
-            #tups_MDYhm_str = [re.findall('(\d+)/(\d+)/(\d+) (\d+):(\d+)',x)[0] for x in idata]
-            #tups_MDYhm_int = [[int(x) for x in tup] for tup in tups_MDYhm_str]
-            #odata = [(3600*h+60*mi+time.mktime(datetime.date(y,mo,d).timetuple())) \
-            #                            for (mo,d,y,h,mi) in tups_MDYhm_int]        
+        sep = '-' if ('-' in idata.iloc[0]) else '/'
+        tupYMD = ('Y','m','d') if (int(re.split(re.escape(sep),'2010-09-20 11:27:04')[0]) > 2000) else ('m','d','Y')
+        tStr_start = (('%%%s'+sep+'%%%s'+sep+'%%%s ') % tupYMD)
+        tStr_end = '%H:%M:%S' if (tupYMD==('Y','m','d')) else '%H:%M'  # new version Ymd includes seconds, old version mdY doesn't
+        tStr = tStr_start+tStr_end
         odata = [time.mktime(datetime.datetime.strptime(x,tStr).timetuple()) for x in idata]
     elif (FN in ['member']):
         odata = ['C' if (r=='Casual') else 'M' for r in idata]
@@ -139,16 +131,13 @@ def read_TH_zipLogFile(zipsDir,dbName):
                     yearsCovered.append(line)
     return (yearsCovered,monthsCovered)
 
-def TH_zips2db(zipsDir,dbName,tableName):
-    # 20190124: let's just have it read full years for now. And bundle the 2018 stuff in a single zip
-    
-    # check directory zipsDir for zip files
-    # write new files to database dbName,tableName
-    # a log file will be generated, in zipsDir that will track previous DB writes
-        # skip any zip file that contains a timeblock which has already been added to the DB
+def TH_zips2db_2019(zipsDir,dbName,tableName):
+    # 20190124: let's just have it read full years for now. (We have bundled all the 2018 months into a single zip)
+
     [cfm_F,cfm_B] = get_cabiFieldMatcher()
     (yearsCovered,monthsCovered) = read_TH_zipLogFile(zipsDir,dbName)
     cabiZipFiles = filter(lambda x: x.endswith('-capitalbikeshare-tripdata.zip'),os.listdir(zipsDir))
+    numNewRows=0
     for ff in cabiZipFiles:
         y = ff[:4]
         if (not(y.isdigit())):
@@ -160,29 +149,34 @@ def TH_zips2db(zipsDir,dbName,tableName):
             zf=zipfile.ZipFile(os.path.join(zipsDir,ff))
             zipContents = filter(lambda x: x.endswith('.csv'),zf.namelist())
             for csvfilename in zipContents:
+                print('    reading CSV: %s' % csvfilename)
                 th = pd.read_csv(zf.open(csvfilename))
+                print('      NumRows: %d' % len(th))
+                numNewRows += len(th)
                 cols = th.columns
                 for col0 in cols:
                     col = re.sub('[^a-z]+', '', col0.lower())
-                    if (col in cfm_B
-            
-            
-            th = pd.read_csv(csvFilename)
-            th.index = np.arange(numRides,numRides+len(th))
-            cols=th.columns
-            for col0 in cols:
-                col = ''.join(listSelect(col0.lower(),ismember(col0.lower(),atoz())))
-                if (col in cfm_B):
-                    FN = cfm_B[col]
-                    if FN in fN_TH():
-                        print('    Processing field: %s' % FN)
-                        th = th.rename(columns = {col0:FN})
-                        th[FN] = reformatCabiField(th[FN],FN)
-            th = th[fN_TH()]
-            th.loc[:,'startHour'] = np.floor(th['startTime']/3600.0).astype('int64')
-            th.loc[:,'endHour'] = np.floor(th['endTime']/3600.0).astype('int64')
-            rek_writeSQL(dbName,tableName,th,'a')
+                    if (col in cfm_B):
+                        FN = cfm_B[col]
+                        if FN in fN_TH():
+                            print('        Processing field: %s' % FN)
+                            th = th.rename(columns = {col0:FN})
+                            th[FN] = reformatCabiField(th[FN],FN)
+                th = th[fN_TH()]
+                th.loc[:,'startHour'] = np.floor(th['startTime']/3600.0).astype('int64')
+                th.loc[:,'endHour'] = np.floor(th['endTime']/3600.0).astype('int64')
+                rek_writeSQL(dbName,tableName,th,'a')
+    print('Total num rows added to database: %d' % numNewRows)
 
+# Future Design of Trip History read: have it automatically download new data.
+    # For now, just do data ingestion manually
+    
+    # Future: Log File:
+    # check directory zipsDir for zip files
+    # check log file to see which years have already been added to the DB
+    # write any new years to database dbName,tableName
+    # a log file will be generated, in zipsDir that will track previous DB writes
+        # skip any zip file that contains a timeblock which has already been added to the DB
 
             
             
@@ -195,17 +189,17 @@ def TH_zips2db(zipsDir,dbName,tableName):
             
             
             
-            tempRFA = re.findall('\A[^\-]+(?=\-)',ff)
-            if (len(tempRFA) != 1):
-                print('Unable to parse file!  %s' % ff)
-            else:
-                y_or_m = tempRFA[0]
-                if (y_or_m not in monthsCovered):
-                    # this TH file has not been read, either as a full year or as an individual month
-                    zf=zipfile.ZipFile(os.path.join(zipsDir,ff))
-                    zipContents = filter(lambda x: x.endswith('.csv'),zf.namelist())
-                    for csvfilename in zipContents:
-                        th = pd.read_csv(zf.open(csvfilename))
+            #tempRFA = re.findall('\A[^\-]+(?=\-)',ff)
+            #if (len(tempRFA) != 1):
+            #    print('Unable to parse file!  %s' % ff)
+            #else:
+            #    y_or_m = tempRFA[0]
+            #    if (y_or_m not in monthsCovered):
+            #        # this TH file has not been read, either as a full year or as an individual month
+            #        zf=zipfile.ZipFile(os.path.join(zipsDir,ff))
+            #        zipContents = filter(lambda x: x.endswith('.csv'),zf.namelist())
+            #        for csvfilename in zipContents:
+            #            th = pd.read_csv(zf.open(csvfilename))
                         
                     
                     
