@@ -92,6 +92,12 @@ def fN_weatherR():
     return ['timeW','tempF','RH','windSpeed',\
                     'precip01h','precip06h','snowDepth','dewpointF']
 
+def fallbackDates():
+    return [20101107,20111106,20121104,20131103,20141102,20151101,20161106,20171105,20181104,20191103,20201101]
+
+def springaheadDates():
+    return [20100314,20110313,20120311,20130310,20140309,20150308,20160313,20170312,20180311,20190310,20200308]
+
 
 def reformatCabiField(idata,FN):
     if (FN=='duration'):
@@ -168,6 +174,10 @@ def TH_zips2db_2019(zipsDir,dbName,tableName):
                 rek_writeSQL(dbName,tableName,th,'a')
     print('Total num rows added to database: %d' % numNewRows)
 
+    
+    
+    
+    
 # Future Design of Trip History read: have it automatically download new data.
     # For now, just do data ingestion manually
     
@@ -177,17 +187,6 @@ def TH_zips2db_2019(zipsDir,dbName,tableName):
     # write any new years to database dbName,tableName
     # a log file will be generated, in zipsDir that will track previous DB writes
         # skip any zip file that contains a timeblock which has already been added to the DB
-
-            
-            
-            
-            
-            
-            
-            
-            # if successful, add y to the log file. But do this later so we can test the data reads a few times
-            
-            
             
             #tempRFA = re.findall('\A[^\-]+(?=\-)',ff)
             #if (len(tempRFA) != 1):
