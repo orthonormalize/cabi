@@ -139,7 +139,30 @@ def read_TH_zipLogFile(zipsDir,dbName):
 
 def TH_zips2db_2019(zipsDir,dbName,tableName):
     # 20190124: let's just have it read full years for now. (We have bundled all the 2018 months into a single zip)
-
+    cabiZipFiles = filter(lambda x: x.endswith('-capitalbikeshare-tripdata.zip'),os.listdir(zipsDir))
+    print(time.ctime())
+    allFieldNames = set()
+    numCols = []
+    #DF = df0
+    L_df=[]
+    len_df=[]
+    for ff in cabiZipFiles:
+        zf=zipfile.ZipFile(os.path.join(zipsDir,ff))
+        zipContents = filter(lambda x: x.endswith('.csv'),zf.namelist())
+        for csvfile in zipContents:
+            print('reading %s' % csvfile)
+            # previously we verified that all files have the same format:
+            #allFieldNames.update(df.columns)
+            #numCols.append(len(df.columns))
+            L_df.append(pd.read_csv(zf.open(csvfile)))
+            len_df.append(len(L_df[-1]))
+    print(time.ctime())
+    DF = pd.concat(L_df,ignore_index=True)
+    print(time.ctime())
+    
+    
+    
+    
     [cfm_F,cfm_B] = get_cabiFieldMatcher()
     (yearsCovered,monthsCovered) = read_TH_zipLogFile(zipsDir,dbName)
     cabiZipFiles = filter(lambda x: x.endswith('-capitalbikeshare-tripdata.zip'),os.listdir(zipsDir))
