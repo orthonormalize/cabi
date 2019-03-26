@@ -159,7 +159,12 @@ def TH_zips2db_2019(zipsDir,dbName,tableName):
     print(time.ctime())
     DF = pd.concat(L_df,ignore_index=True)
     print(time.ctime())
-    
+    subset4dedupe = [col for col in DF.columns if ((col != 'Start station') and (col != 'End station'))]
+    print(time.ctime())
+    print(len(DF))
+    DF.drop_duplicates(subset=subset4dedupe,keep='last',inplace=True)
+    print(len(DF))
+    print(time.ctime())
     
     
     
