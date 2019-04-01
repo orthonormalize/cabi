@@ -143,7 +143,7 @@ def TH_zips2db_2019(zipsDir,dbName,tableName):
     print(time.ctime())
     allFieldNames = set()
     numCols = []
-    #DF = df0
+    # 1) Read raw files into DataFrame:
     L_df=[]
     len_df=[]
     for ff in cabiZipFiles:
@@ -159,12 +159,14 @@ def TH_zips2db_2019(zipsDir,dbName,tableName):
     print(time.ctime())
     DF = pd.concat(L_df,ignore_index=True)
     print(time.ctime())
+    # 2) DeDupe to remove any rows appearing in more than one file (e.g. overlap btw Nov and Dec '18)
     subset4dedupe = [col for col in DF.columns if ((col != 'Start station') and (col != 'End station'))]
     print(time.ctime())
     print(len(DF))
     DF.drop_duplicates(subset=subset4dedupe,keep='last',inplace=True)
     print(len(DF))
     print(time.ctime())
+    # 3) Check for overlaps caused by uncommunicative docking stations (ignore those caused by DST ambiguities)
     
     
     
