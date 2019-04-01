@@ -207,7 +207,16 @@ def TH_zips2db_2019(zipsDir,dbName,tableName):
     # 3) Remove overlaps caused by uncommunicative docking stations (ignore those caused by DST ambiguities)
                 # overlap === a conflict within a single bicycle's itinerary
     DF = removeBicycleItineraryOverlaps(DF,ignore_overlaps_involving_fallbackhour=True)
-    
+    # 4) Convert timestamp strings into unixTime floats (takes 10 minutes to process 45M timestasmps in 22.6M rows):
+    tStr = '%Y-%m-%d %H:%M:%S'
+    print(time.ctime())
+    print('Converting Start date strings into unix timestamps...')
+    DF['Start time'] = DF['Start date'].apply(lambda x: time.mktime(datetime.datetime.strptime(x,tStr).timetuple()))
+    print(time.ctime())
+    print('Converting End date strings into unix timestamps...') 
+    DF['End time'] = DF['End date'].apply(lambda x: time.mktime(datetime.datetime.strptime(x,tStr).timetuple()))
+    print(time.ctime())
+
     
     
     [cfm_F,cfm_B] = get_cabiFieldMatcher()
