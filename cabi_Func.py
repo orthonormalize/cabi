@@ -98,6 +98,29 @@ def fallbackDates():
 def springaheadDates():
     return [20100314,20110313,20120311,20130310,20140309,20150308,20160313,20170312,20180311,20190310,20200308]
 
+def bicycleItineraryOverlaps(DF,ignore_if_fallbackhour=True):
+    uB = DF['Bike number'].unique()
+    numBikes = len(uB)
+    print('%d unique bicycles' % numBikes)
+    overlapDF = pd.DataFrame({'Duration':[],'Start date':[],'End date':[],'Start station number':[],
+                       'Start station':[],'End station number':[],'End station':[],'Bike number':[],'Member type':[]})
+    print(time.ctime())
+    print('Finding bicycle itinerary conflicts...')
+    gb_Bike = DF.groupby('Bike number')
+    for bDex in range(numBikes):
+        if (bDex%1000 == 0):
+            print('%d / %d' % (bDex,numBikes))
+        itinerary = gb_Bike.get_group(uB[bDex]).sort_values(by='Start date')
+        (SD,ED) = (list(itinerary['Start date']),list(itinerary['End date']))
+        for row in range(len(SD)-1):
+            if (ED[row] > SD[row+1]):
+            #if (itinerary['End date'].iloc[row] > itinerary['Start date'].iloc[row+1]):
+                        # apparently access is MUCH faster if you pull itinerary into a separate list first!!?
+                overlapDF = pd.concat([overlapDF,itinerary.iloc[row:(row+2)]])
+    print(time.ctime())
+    return(overlapDF)
+
+
 
 def reformatCabiField(idata,FN):
     if (FN=='duration'):
@@ -167,6 +190,8 @@ def TH_zips2db_2019(zipsDir,dbName,tableName):
     print(len(DF))
     print(time.ctime())
     # 3) Check for overlaps caused by uncommunicative docking stations (ignore those caused by DST ambiguities)
+                # overlap === a conflict within a single bicycle's itinerary
+    overlapDF = bicycleItineraryOverlaps(DF,ignore_if_fallbackhour=True)
     
     
     
