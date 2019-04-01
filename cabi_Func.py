@@ -98,7 +98,7 @@ def fallbackDates():
 def springaheadDates():
     return [20100314,20110313,20120311,20130310,20140309,20150308,20160313,20170312,20180311,20190310,20200308]
 
-def bicycleItineraryOverlaps(DF,ignore_if_fallbackhour=True):
+def removeBicycleItineraryOverlaps(DF,ignore_overlaps_involving_fallbackhour=True):
     uB = DF['Bike number'].unique()
     numBikes = len(uB)
     print('%d unique bicycles' % numBikes)
@@ -118,7 +118,22 @@ def bicycleItineraryOverlaps(DF,ignore_if_fallbackhour=True):
                         # apparently access is MUCH faster if you pull itinerary into a separate list first!!?
                 overlapDF = pd.concat([overlapDF,itinerary.iloc[row:(row+2)]])
     print(time.ctime())
-    return(overlapDF)
+    print('Total number of overlaps: %d' % (len()//2))
+    if (ignore_overlaps_involving_fallbackhour):
+        fallbackStrings = [('%04d-%02d-%02d 01:' % (day//10000,(day//100)%100,day%100)) for day in fallbackDates()]
+        dysclosureAnomalies = \
+                overlapDF[(overlapDF['Start date'].apply(lambda x: not(any([x.startswith(s) for s in fallbackStrings])))) & \
+                    (overlapDF['End date'].apply(lambda x: not(any([x.startswith(s) for s in fallbackStrings]))))]
+        print('Found %d rows containing dysclosure anomalies, ignoring overlaps' % len(dysclosureAnomalies))
+        keepSet = set(dysclosureAnomalies.groupby(['Bike number','Start date','Start station number'])['Duration'].idxmin())
+        discardSet = set(dysclosureAnomalies.index) - keepSet
+        print('   Keeping %d of these rows, discarding the other %d' % (len(keepSet),len(discardSet))) 
+        print(len(DF))
+        DF.drop(list(discardSet),axis=0,inplace=True)
+        print(len(DF))
+        return(DF)
+    else:
+        return -999 # error: but I won't bother to complete this branch now
 
 
 
@@ -189,9 +204,9 @@ def TH_zips2db_2019(zipsDir,dbName,tableName):
     DF.drop_duplicates(subset=subset4dedupe,keep='last',inplace=True)
     print(len(DF))
     print(time.ctime())
-    # 3) Check for overlaps caused by uncommunicative docking stations (ignore those caused by DST ambiguities)
+    # 3) Remove overlaps caused by uncommunicative docking stations (ignore those caused by DST ambiguities)
                 # overlap === a conflict within a single bicycle's itinerary
-    overlapDF = bicycleItineraryOverlaps(DF,ignore_if_fallbackhour=True)
+    DF = removeBicycleItineraryOverlaps(DF,ignore_overlaps_involving_fallbackhour=True)
     
     
     
