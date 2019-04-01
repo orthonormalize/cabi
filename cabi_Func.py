@@ -207,7 +207,7 @@ def TH_zips2db_2019(zipsDir,dbName,tableName):
     # 3) Remove overlaps caused by uncommunicative docking stations (ignore those caused by DST ambiguities)
                 # overlap === a conflict within a single bicycle's itinerary
     DF = removeBicycleItineraryOverlaps(DF,ignore_overlaps_involving_fallbackhour=True)
-    # 4) Convert timestamp strings into unixTime floats (takes 10 minutes to process 45M timestasmps in 22.6M rows):
+    # 4) Convert timestamp strings into unixTime floats (takes 10 minutes to process 45M timestasmps in 22M rows):
     tStr = '%Y-%m-%d %H:%M:%S'
     print(time.ctime())
     print('Converting Start date strings into unix timestamps...')
@@ -216,75 +216,11 @@ def TH_zips2db_2019(zipsDir,dbName,tableName):
     print('Converting End date strings into unix timestamps...') 
     DF['End time'] = DF['End date'].apply(lambda x: time.mktime(datetime.datetime.strptime(x,tStr).timetuple()))
     print(time.ctime())
-
+    # 5) write Trip History to DB (2.5 minutes for 22M rows)
+    print('Writing trip history DataFrame to SQL DB...')
+    rek_writeSQL(dbName,tableName,DF,'w')
+    print(time.ctime())
     
-    
-    [cfm_F,cfm_B] = get_cabiFieldMatcher()
-    (yearsCovered,monthsCovered) = read_TH_zipLogFile(zipsDir,dbName)
-    cabiZipFiles = filter(lambda x: x.endswith('-capitalbikeshare-tripdata.zip'),os.listdir(zipsDir))
-    numNewRows=0
-    for ff in cabiZipFiles:
-        y = ff[:4]
-        if (not(y.isdigit())):
-            print('Unable to parse file name format: %s' % ff)
-        elif (y in yearsCovered):
-            print('Skipping file %s. Already in database' % ff)
-        elif (y not in yearsCovered):
-            print('reading file: %s' % ff)
-            zf=zipfile.ZipFile(os.path.join(zipsDir,ff))
-            zipContents = filter(lambda x: x.endswith('.csv'),zf.namelist())
-            for csvfilename in zipContents:
-                print('    reading CSV: %s' % csvfilename)
-                th = pd.read_csv(zf.open(csvfilename))
-                print('      NumRows: %d' % len(th))
-                numNewRows += len(th)
-                cols = th.columns
-                for col0 in cols:
-                    col = re.sub('[^a-z]+', '', col0.lower())
-                    if (col in cfm_B):
-                        FN = cfm_B[col]
-                        if FN in fN_TH():
-                            print('        Processing field: %s' % FN)
-                            th = th.rename(columns = {col0:FN})
-                            th[FN] = reformatCabiField(th[FN],FN)
-                th = th[fN_TH()]
-                th.loc[:,'startHour'] = np.floor(th['startTime']/3600.0).astype('int64')
-                th.loc[:,'endHour'] = np.floor(th['endTime']/3600.0).astype('int64')
-                rek_writeSQL(dbName,tableName,th,'a')
-    print('Total num rows added to database: %d' % numNewRows)
-
-    
-    
-    
-    
-# Future Design of Trip History read: have it automatically download new data.
-    # For now, just do data ingestion manually
-    
-    # Future: Log File:
-    # check directory zipsDir for zip files
-    # check log file to see which years have already been added to the DB
-    # write any new years to database dbName,tableName
-    # a log file will be generated, in zipsDir that will track previous DB writes
-        # skip any zip file that contains a timeblock which has already been added to the DB
-            
-            #tempRFA = re.findall('\A[^\-]+(?=\-)',ff)
-            #if (len(tempRFA) != 1):
-            #    print('Unable to parse file!  %s' % ff)
-            #else:
-            #    y_or_m = tempRFA[0]
-            #    if (y_or_m not in monthsCovered):
-            #        # this TH file has not been read, either as a full year or as an individual month
-            #        zf=zipfile.ZipFile(os.path.join(zipsDir,ff))
-            #        zipContents = filter(lambda x: x.endswith('.csv'),zf.namelist())
-            #        for csvfilename in zipContents:
-            #            th = pd.read_csv(zf.open(csvfilename))
-                        
-                    
-                    
-        
-        
-
-
 def TH_csv2db_2016(yqStart,yqEnd,dbName,tableName):
     #origDIR = os.getcwd()
     #os.chdir(cabiDIR)
