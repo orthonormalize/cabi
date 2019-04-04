@@ -118,16 +118,18 @@ def removeBicycleItineraryOverlaps(DF,ignore_overlaps_involving_fallbackhour=Tru
                         # apparently access is MUCH faster if you pull itinerary into a separate list first!!?
                 overlapDF = pd.concat([overlapDF,itinerary.iloc[row:(row+2)]])
     print(time.ctime())
-    print('Total number of overlaps: %d' % (len()//2))
+    print('Total number of overlaps: %d' % (len(overlapDF)//2))
     if (ignore_overlaps_involving_fallbackhour):
         fallbackStrings = [('%04d-%02d-%02d 01:' % (day//10000,(day//100)%100,day%100)) for day in fallbackDates()]
         dysclosureAnomalies = \
                 overlapDF[(overlapDF['Start date'].apply(lambda x: not(any([x.startswith(s) for s in fallbackStrings])))) & \
                     (overlapDF['End date'].apply(lambda x: not(any([x.startswith(s) for s in fallbackStrings]))))]
-        print('Found %d rows containing dysclosure anomalies, ignoring overlaps' % len(dysclosureAnomalies))
+        print('Examining %d rows containing dysclosure anomalies, ignoring overlaps' % len(dysclosureAnomalies))
+        print(dysclosureAnomalies.index)
+        # If more than one ride has the same bike/startLoc/startTime, keep only the shortest ride. (Others presumed to be "dysclosed") :
         keepSet = set(dysclosureAnomalies.groupby(['Bike number','Start date','Start station number'])['Duration'].idxmin())
         discardSet = set(dysclosureAnomalies.index) - keepSet
-        print('   Keeping %d of these rows, discarding the other %d' % (len(keepSet),len(discardSet))) 
+        print('   Discarding %d of these rows, which are presumed to be dysclosed' % len(discardSet)) 
         print(len(DF))
         DF.drop(list(discardSet),axis=0,inplace=True)
         print(len(DF))
